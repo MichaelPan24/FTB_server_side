@@ -3,6 +3,6 @@
 ## tech stack
 
 所用到的主要技术栈
-*nodejs
-*mongodb
-*express
+* nodejs
+* mongodb
+* express

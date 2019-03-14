@@ -22,13 +22,13 @@ exports.register = function(req, res, next){
                 avatar: avatar
             });
             //用bcrypt对密码进行加密
-            bcrypt.hash(newUser.password, 10, (err, hash) => {
-                if(!err) {
+            bcrypt.hash(newUser.password, 10, (hash) => {
+                if(hash) {
                     newUser.password = hash;
                     //存储新用户
                     newUser.save()
                         .then(user => {
-                            res.json(user)
+                            res.json('注册成功')
                         })
                         .catch(err => {
                             console.log(err)
@@ -42,7 +42,7 @@ exports.register = function(req, res, next){
 }
 
 //登陆处理
-exports.login = function(req, res, next){
+exports.logIn = function(req, res, next){
     const userInfo = req.body;
     User.findOne({
         email: userInfo.email
@@ -65,7 +65,8 @@ exports.login = function(req, res, next){
                     if(err){
                         throw err
                     }
-                    req.session.id = token;
+                    //报错用户登录信息,作为认证
+                    req.session.loginUser = user;
                     res.json({
                         success: true,
                         token: 'Bearer' + token
@@ -76,4 +77,14 @@ exports.login = function(req, res, next){
             }
         })
     })
+}
+
+exports.logOut = function(req, res ,next){
+    req.session.destroy( (err) => {
+        if(err){
+            res.json('出现错误, 请重试');
+        }
+        req.session.loginUser = null;
+    })
+    res.redirect('/');
 }

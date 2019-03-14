@@ -13,8 +13,8 @@ router.get('/current',  projectController.getCurrentProject);
 
 /**
  * 插入新的project
- * POST api/project/
+ * POST api/project/insert
  */
-router.post('/', projectController.insertProject);
+router.post('/addNew', projectController.addProject);
 
 module.exports = router;

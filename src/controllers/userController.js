@@ -65,7 +65,7 @@ exports.logIn = function(req, res, next){
                     if(err){
                         throw err
                     }
-                    //报错用户登录信息,作为认证
+                    //保存用户登录信息,生成token,作为认证
                     req.session.loginUser = user;
                     res.json({
                         success: true,

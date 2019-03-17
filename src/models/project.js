@@ -7,6 +7,7 @@ const ProjectSchema = new Schema({
     companyName: {type: String, required: true},
     title: {type: String, required: true},
     description: {type: String, required: true},
+    image: {type: Array},
     contact: {type: Object, required: true},
     date: {type: Date, default: Date.now}
 });

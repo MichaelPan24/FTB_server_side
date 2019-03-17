@@ -2,9 +2,9 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const session = require('express-session');
 
-const {connect} = require('../config/db');
-const projectRouter = require('../routers/project');
-const userRouter = require('../routers/user');
+const {connect} = require('./config/db');
+const projectRouter = require('./routers/project');
+const userRouter = require('./routers/user');
 
 const port = process.env.PORT || 3301;
 
@@ -13,6 +13,9 @@ const  app = express();
 //解析请求主体
 app.use(bodyParser.urlencoded({extended: false}));
 app.use(bodyParser.json());
+
+//托管静态资源文件
+app.use(express.static(__dirname + '/public'));
 
 app.use(function(req, res, next){
     //设置跨域访问

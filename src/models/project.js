@@ -4,6 +4,7 @@ const Schema = mongoose.Schema;
 const Model = mongoose.model;
 //定义项目模式
 const ProjectSchema = new Schema({
+    avatar: {type: String},
     companyName: {type: String, required: true},
     title: {type: String, required: true},
     description: {type: String, required: true},

@@ -22,13 +22,15 @@ exports.register = function(req, res, next){
                 avatar: avatar
             });
             //用bcrypt对密码进行加密
-            bcrypt.hash(newUser.password, 10, (hash) => {
+            bcrypt.hash(newUser.password, 10, (err, hash) => {
                 if(hash) {
                     newUser.password = hash;
                     //存储新用户
                     newUser.save()
                         .then(user => {
-                            res.json('注册成功')
+                            if(user){
+                                res.status(200).json('注册成功')
+                            }
                         })
                         .catch(err => {
                             console.log(err)
@@ -48,8 +50,12 @@ exports.logIn = function(req, res, next){
         email: userInfo.email
     }).then(user => {
         if(!user){
-            res.status(400).json('用户不存在')
-        }
+            res.status(400).json('用户不存在');
+            return;
+        }else if(user && !bcrypt.compareSync(userInfo.password, user.password)){
+            res.status(400).json('您输入的密码有误');
+            return;
+        }else {
         //验证成功
         bcrypt.compare(userInfo.password, user.password , (err, isMatched) => {
             if(err) throw err;
@@ -66,25 +72,37 @@ exports.logIn = function(req, res, next){
                         throw err
                     }
                     //保存用户登录信息,生成token,作为认证
-                    req.session.loginUser = user;
-                    res.json({
+                    
+                    // req.session.regenerate(err => {
+                    //     if(err) throw err;
+                        req.session.cookie.token = 'Bearer '+token;
+                        req.session.loginUser = user;
+                    // })
+                        
+                    res.status(200).json({
                         success: true,
-                        token: 'Bearer' + token
+                        token: 'Bearer ' + token
                     })
+                  
+
                 })
             }else{
                 res.status(400).json('密码错误')
             }
-        })
+        })}
     })
 }
 
 exports.logOut = function(req, res ,next){
-    req.session.destroy( (err) => {
-        if(err){
-            res.json('出现错误, 请重试');
-        }
-        req.session.loginUser = null;
-    })
-    res.redirect('/');
+    if(req.session){
+        req.session.destroy( (err) => {
+            if(err){
+                res.json('出现错误, 请重试');
+            }
+            res.status(200).json('已登出');
+            // req.session.loginUser = null;
+        })
+    }
+
+    
 }

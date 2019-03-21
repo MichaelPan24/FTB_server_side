@@ -1,6 +1,10 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const session = require('express-session');
+const redis = require('redis');
+
+let redisStore = require('connect-redis')(session);
+let redisClient  = redis.createClient('6379', '127.0.0.1');
 
 const {connect} = require('./config/db');
 const projectRouter = require('./routers/project');
@@ -14,10 +18,16 @@ const  app = express();
 app.use(bodyParser.urlencoded({extended: false}));
 app.use(bodyParser.json());
 
+//redis 链接错误
+redisClient.on("error", function(error) {
+    console.log(error);
+});
+
 //托管静态资源文件
 app.use(express.static(__dirname + '/public'));
 
 app.use(function(req, res, next){
+    // console.log(req.headers)
     //设置跨域访问
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Content-Length, Authorization, Accept, X-Requested-With , yourHeaderFeild');
@@ -31,9 +41,10 @@ app.use(function(req, res, next){
 })
 //使用express-session中间件,传递session供用户登陆验证使用
 app.use(session({
+    store: new redisStore({client: redisClient}),
     secret: 'bnjj1314zyq',
     resave: false,
-    saveUninitialized: true,
+    saveUninitialized: false,
     cookie:{
         maxAge: 20*60*1000
     }

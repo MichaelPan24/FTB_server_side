@@ -1,7 +1,7 @@
 const express= require('express');
 const router = express.Router();
 const multer = require('multer');
-const upload = multer({dest: __dirname+'/../public/upload/projects/'});
+const upload = multer({dest: __dirname+'/../public/upload/caches/'});
 
 const projectController = require('../controllers/projectController');
 
@@ -17,5 +17,6 @@ router.get('/current',  projectController.getCurrentProject);
  * POST api/project/insert
  */
 router.post('/upload',  upload.array('image', 9) , projectController.uploadProject);
+
 
 module.exports = router;

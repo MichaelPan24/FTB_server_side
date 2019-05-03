@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const upload = multer({dest: __dirname+'/../public/upload/caches/'});
+const upload = multer({dest: __dirname+'/../public/upload/caches/', limits: {fieldSize: '10MB'}});
 
 const UserController = require('../controllers/userController');
 /**
@@ -16,7 +16,7 @@ router.post('/login', UserController.logIn);
  * POST
  * /api/user/register
  */
-router.post('/register', UserController.register);
+router.post('/register',upload.single('avatar'), UserController.register);
 
 /**
  * 用户登出
@@ -35,9 +35,9 @@ router.put('/update/:userId', upload.single('avatar'), UserController.updateInfo
 /**
  * 更新用户的收藏列表
  * PUT
- * /api/user/update/:userId/updateFav/:favId
+ * /api/user/update/:userId/updateFav
  */
-router.put('/update/:userId/updateFav/:favId', UserController.updateFav);
+router.put('/update/:userId/updateFav', UserController.updateFav);
 
 /**
  * 获取用户的项目发布列表
@@ -53,4 +53,10 @@ router.get('/:userId/:identify/projects', UserController.getProject);
  */
 router.get('/:userId/favorite/:type', UserController.getFav)
 
+/**
+ * 
+ * PUT
+ * /api/user/:userId/remove/:removeType/:projectId
+ */
+router.put('/:userId/remove/:removeType', UserController.removeProject)
 module.exports = router;

@@ -10,8 +10,8 @@ const mongoose = require('mongoose');
  */
 
 exports.getCurrentProject = (req, res, next) => {
-        Project.find({},(err, projects) => {
-            if(err) console.log(err);
+        Project.find({}).populate({path: 'avatar', select:'avatar'}).populate({path: 'companyName', select: 'name'}).populate({path: 'contact', select: 'email'}).exec((err, projects) => {
+            if(err) throw err;
             res.send(projects);
     })
 }
@@ -30,18 +30,17 @@ exports.uploadProject = (req, res, next) => {
                 }
                 console.log('uploaded demands');
             })
-            imgArr.push('http://192.168.1.103:3301/upload/projects/'+ imageData[i].originalname)
+            imgArr.push('http://119.23.227.22:3303/upload/projects/'+ imageData[i].originalname)
         }
 
         const newProject = new Project({
             _id: new mongoose.Types.ObjectId(),
-            author: loginUser._id,
-            avatar: loginUser.avatar || null,
-            companyName: loginUser.name,
+            avatar: loginUser._id,
+            companyName: loginUser._id,
             title: projectData.title,
             description: projectData.description,
             image: imgArr,
-            contact: loginUser.contact,
+            contact: loginUser.email,
             // date: projectData.date
         });
         

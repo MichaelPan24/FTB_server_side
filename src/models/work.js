@@ -1,12 +1,12 @@
 const mongoose = require('mongoose');
 
 const Schema = mongoose.Schema;
-const model = mongoose.model;
+const Model = mongoose.model;
 
 const workSchema = new Schema({
     _id: Schema.Types.ObjectId,
-    avatar: {type: String},
-    collectedUser: {type: Schema.Types.ObjectId, ref: 'users'},     //关联收藏的用户
+    avatar: {type: Schema.Types.ObjectId, ref: 'users'},
+    collectedUser: [{type: Schema.Types.ObjectId, ref: 'users'}],     //关联收藏的用户
     title: {type: String, required: true},
     description: {type: String, required: true},
     image: {type: Array, required: true},
@@ -14,11 +14,11 @@ const workSchema = new Schema({
     /**
      * 考虑到客户端读取的速度以及管理的便捷并没有使用表管理而是从session中取出一下两条用户信息
      */
-    author: {type: String, required: true},
-    contact: {type: String, require: true},
+    author: {type: Schema.Types.ObjectId, ref: 'users', required: true},
+    contact: {type: Schema.Types.ObjectId, ref: 'users', require: true},
     comments: {type: Schema.Types.ObjectId, ref: 'comments'}    //评论
 });
 
-const workModel = model('work', workSchema);
+const workModel = Model('works', workSchema);
 
 module.exports = workModel;

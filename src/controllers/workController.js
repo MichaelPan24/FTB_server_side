@@ -4,10 +4,18 @@ const fs = require('fs');
 const mongoose = require('mongoose');
 
 exports.getCurrentWork = function(req, res, next){
-    Work.find({}, (err, works) => {
+    Work.find().populate({path: 'avatar', select: 'avatar'}).populate({path: 'author', select: 'name'}).populate({path: 'contact', select: 'email'}).populate({path: 'collectedUser', select: '_id'}).exec((err, works) => {
         if(err) throw err;
-        res.send(works)
+        // new Promise((resolve, reject))
+        // works.forEach(async work => {
+        //     work.avatar = await work.avatar.avatar;
+        //     work.author = await work.author.name;
+        //     work.contact = await work.contact.email;
+        // })
+        res.status(200).send(works)
     })
+        
+            
 }
 
 exports.uploadWork = function(req, res, next){
@@ -23,27 +31,41 @@ exports.uploadWork = function(req, res, next){
                 }
                 console.log('uploaded works');
             })
-            imgArr.push('http://192.168.1.103:3301/upload/works/'+ imageData[i].originalname)
+            imgArr.push('http://119.23.227.22:3303/upload/works/'+ imageData[i].originalname)
         }
+
+        // User.findById(loginUser._id, (err, user) => {
+        //     if(err) throw err;
+        //     avatar = user.avatar
+        // })
+        
         const newWork = new Work({
             _id: new mongoose.Types.ObjectId(),
-            avatar: loginUser.avatar || null,
-            author: loginUser.name,
+            avatar:  loginUser._id ,
+            author: loginUser._id,
             title: workData.title,
             description: workData.description,
             image: imgArr  ,
-            contact: loginUser.contact,
+            contact: loginUser._id,
         });
         newWork.save()
             .then(newWork => {
-                User.findById(loginUser._id, (err, user) => {
+                User.findById(loginUser._id).populate('works').exec((err, user) => {
                     if(err) throw err;
-                    user.works.push(newWork._id);
-                    user.save((err, newWork) => {
+                    user.works.push(newWork);
+                    user.save((err, newUser) => {
                         if(err) throw err;
-                        res.status(200).send(newWork);
-                    });
+                        res.status(200).send(newUser.works)
+                    })
                 })
+                // User.findById(loginUser._id, (err, user) => {
+                //     if(err) throw err;
+                //     user.works.push(newWork._id);
+                //     user.save((err, newWork) => {
+                //         if(err) throw err;
+                //         res.status(200).send(newWork);
+                //     });
+                // })
                 // res.status(200).send(newWork);   
             })
             .catch(err => {

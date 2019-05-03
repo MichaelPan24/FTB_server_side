@@ -1,5 +1,5 @@
 const gravatar = require('gravatar');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const fs = require('fs');
@@ -11,20 +11,28 @@ const Work = require('../models/work');
 //注册处理
 exports.register = function(req, res, next){
     const UserInfo = req.body;
+    const avatarData = req.file;
     User.findOne({
         email: UserInfo.email
-    }).then(user => {
+    }).then(async user => {
         if(user) {
-            return res.status(400).json('邮箱已被注册');
+            res.status(400).json('邮箱已被注册');
+            return;
         } else {
-            const avatar = gravatar.url(UserInfo.email, {s: '200', r: 'pg', d: 'py'});
+            avatarData && await fs.rename(avatarData.path, __dirname+ '/../public/upload/avatars/' + avatarData.originalname, (err) => {
+                if(err){
+                    throw err;
+                }
+                console.log('updated user avatar')
+            }) 
+            // const avatar = gravatar.url(UserInfo.email, {s: '200', r: 'pg', d: 'py'});
             const newUser = new User({
                 _id: new mongoose.Types.ObjectId(),
                 name: UserInfo.name,
                 email: UserInfo.email,
                 password: UserInfo.password,
                 identify: UserInfo.identify,
-                avatar: avatar
+                avatar: 'http://119.23.227.22:3303/upload/avatars/'+ avatarData.originalname
             });
             //用bcrypt对密码进行加密
             bcrypt.hash(newUser.password, 10, (err, hash) => {
@@ -45,6 +53,8 @@ exports.register = function(req, res, next){
                 }
             })
         } 
+    }).catch(err => {
+        throw err;
     })
 }
 
@@ -128,7 +138,7 @@ exports.updateInfo = function(req, res, next){
             name && user.set({name: name});
             email && await User.findOne({email: email}).then(User => {
                 if(!User) {return user.set({email: email});}
-                else{res.status(403).end('邮箱已存在'); return updateInfo }
+                else{res.status(403).end('邮箱已存在'); return }
             })
 
             password && user.set({password: bcrypt.hashSync(password, 10)});
@@ -138,13 +148,16 @@ exports.updateInfo = function(req, res, next){
                     throw err;
                 }
                 console.log('updated user avatar')
+                
             }) 
-            user.set({avatar: 'http://192.168.1.103:3301/upload/avatars/'+ avatarData.originalname})
+            avatarData && user.set({avatar: 'http://119.23.227.22:3303/upload/avatars/'+ avatarData.originalname})
 
             user.save((err, updatedUser) => {
                 if(err) throw err;
                 res.status(200).send(updatedUser)
             })
+        }).catch(err => {
+            throw err;
         })
 
     }else{
@@ -154,25 +167,34 @@ exports.updateInfo = function(req, res, next){
 
 /**
  * 更新用户的收藏夹
+ * @var {favProject, favWork} 需求或是作品id 
  */
 exports.updateFav = function(req, res, next){
     if(checkIsLogin(req.session)){
         const userId = req.params.userId;
         const favProject = req.body.favProject;
         const favWork = req.body.favWork;
-        User.findById(userId).populate('works').populate('projects').exec((err, user) => {
+        User.findById(userId).exec((err, user) => {
             if(err) return err;
-            favProject && user.favorites_project.push(favProject) && User.findById(userId).populate('projects').exec((err, user) => {
-                user.favorites_project.connectedUser.push(user._id);
-                user.favorites_project.save();
-            });
-            favWork && user.favorites_work.push(favWork) && User.findById(userId).populate('works').exec((err, user) => {
-                user.favorites_work.collectedUser.push(user._id);
-                user.favorites_work.save();
-            });
+            favProject && user.favorite_project.push(favProject) && Project.findById(favProject, (err, project) => {
+                if(err) throw err;
+                project.collectedUser.push(userId);
+                project.save();
+            })
+                
+            favWork && user.favorite_work.push(favWork) && Work.findById(favWork, (err, work) => {
+                if(err) throw err;
+                work.collectedUser.push(userId);
+                work.save();
+            })
+                
             user.save((err, updatedUser) => {
                 if(err) return err;
-                res.send(updatedUser);
+                updatedUser.populate('favorite_work').exec((err, user) => {
+                    if(err) throw err;
+                    res.json(user)
+                })
+                
             })
         })
     }else{
@@ -187,18 +209,33 @@ exports.getProject = function(req, res, next){
         const userId = req.params.userId;
         const identify = String(req.params.identify);
         if(identify === '0'){
-            User.findById(userId).populate('projects').exec((err, user) => {
+            _UserFindById(userId, {path: 'projects'}, (err, user) => {
                 if(err) throw err;
-                /**
-                 * 回头再改
-                 */
-                res.status(200).send(user.projects);
-            })
+                let opts = [
+                    {path: 'avatar', select: 'avatar'},
+                    {path: 'companyName', select: 'name'},
+                    {path: 'contact', select: 'email'}
+                ]
+                User.populate(user.projects, opts, (err , user) => {
+                    if(err) throw err;
+	    //   console.log(user);
+                    res.status(200).send(user);
+                })                     
+            });
         }else if(identify === '1'){
-            User.findById(userId).populate('works').exec((err, user) => {
+            _UserFindById(userId, {path: 'works'}, (err, user) => {
                 if(err) throw err;
-                res.status(200).send(user.works)
-            })
+                let opts = [
+                    {path: 'avatar', select: 'avatar'},
+                    {path: 'author', select: 'name'},
+                    {path: 'contact', select: 'email'}
+                ]
+                User.populate(user.works, opts, (err , user) => {
+                    if(err) throw err;
+	    //   console.log(user);
+                    res.status(200).send(user);
+                })                     
+            });
         }
     }else{
         res.status(403).json('请登录');
@@ -212,21 +249,85 @@ exports.getProject = function(req, res, next){
 exports.getFav = function(req, res, next){
     if(checkIsLogin(req.session)){
         const userId = req.params.userId;
-        const type = req.params.type;
+        const type = String(req.params.type);
+        // console.log(type, userId, typeof(userId), typeof type)
         if(type === 'project'){
-            _UserFindById(userId, 'projects', (err, user) => {
+            _UserFindById(userId, {path: 'favorite_project'}, (err, user) => {
                 if(err) throw err;
-                res.status(200).send(user.favorites_project);                      
-            })
-        }else if(type === 'works'){
-            _UserFindById(userId, 'works', (err, user) => {
+                let opts = [
+                    {path: 'avatar', select: 'avatar'},
+                    {path: 'companyName', select: 'name'},
+                    {path: 'contact', select: 'email'}
+                ]
+                User.populate(user.favorite_project, opts, (err , user) => {
+                    if(err) throw err;
+	    //   console.log(user);
+                    res.status(200).send(user);
+                })                     
+            });
+        }else if(type === 'work'){
+            _UserFindById(userId, {path: 'favorite_work'}, (err, user) => {
                 if(err) throw err;
-                res.status(200).send(user.favorite_work);
-            })
+                let opts = [
+                    {path: 'avatar', select: 'avatar'},
+                    {path: 'author', select: 'name'},
+                    {path: 'contact', select: 'email'}
+                ]
+                User.populate(user.favorite_work, opts, (err , user) => {
+                    if(err) throw err;
+	    //   console.log(user);
+                    res.status(200).send(user);
+                })
+                
+            });
         }
     }else{
         res.status(403).json('请登录');
     }
+}
+
+/**
+ * 
+ */
+exports.removeProject = function(req, res, next){
+    if(checkIsLogin(req.session)){
+        const paramObj = _getParams(req);
+        const {userId, removeType} = paramObj;
+        const {projectIdArr} = req.body;
+        switch(removeType){
+            case 'removeProject':
+                removeProject(userId, projectIdArr, 'projects');
+                break;
+            case 'removeWork':
+                removeProject(userId, projectIdArr, 'works');
+            case 'removeFavProject':
+                removeProject(userId, projectIdArr, 'favorite_project');
+                break;
+            case 'removeFavWork':
+                removeProject(userId, projectIdArr, 'favorite_work');
+                break;
+        }
+
+    }
+}
+
+/**
+ * 
+ * @param {String} userId 
+ * @param {Arr} projectIdArr 
+ * @param {String} removeType 
+ */
+function removeProject(userId, projectIdArr, removeType){
+    return User.findById(userId, (err, user) => {
+            if(err) throw err;
+            projectIdArr.forEach((project ,index) => {
+                user[removeType].splice(user[removeType].indexOf(project), 1);
+            });
+            user.save((err, updateUser) => {
+                if(err) throw err;
+                res.status(200).send(updateUser);
+            })
+        })
 }
 
 /**
@@ -243,9 +344,18 @@ function checkIsLogin({loginUser}){
 /**
  * 根据userId查找方法
  * @param {String} userId 
- * @param {String} populateInfo 
+ * @param {String || Object} populateInfo 
  * @param {Function} callback 
  */
 function _UserFindById(userId, populateInfo, callback){
-    User.findById(userId).populate(populateInfo).exec(callback)
+   return User.findById(userId).populate(populateInfo).exec(callback)
+}
+
+/**
+ * 拿取url参数操作
+ * @param {Object} req 
+ */
+function _getParams(req){
+    let paramObj = Object.assign({}, req.params);
+    return paramObj;
 }

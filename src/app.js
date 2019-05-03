@@ -65,6 +65,9 @@ app.get('/', (req, res) => {
 //连接数据库
 connect()
 
+app.on('unhandledrejection',(e)=>{
+    e.preventDefault();
+})
 
 app.listen(port, () => {
     console.log('server running ')

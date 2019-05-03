@@ -18,4 +18,9 @@ router.get('/current',  workController.getCurrentWork);
  */
 router.post('/upload',  upload.array('image', 9) , workController.uploadWork);
 
+/**
+ * 获取当前作品的评论信息
+ * GET api/show/comment/:workId
+ */
+router.get('/comment/:workId', workController.getComment);
 module.exports = router;

@@ -16,7 +16,7 @@ const workSchema = new Schema({
      */
     author: {type: Schema.Types.ObjectId, ref: 'users', required: true},
     contact: {type: Schema.Types.ObjectId, ref: 'users', require: true},
-    comments: {type: Schema.Types.ObjectId, ref: 'comments'}    //评论
+    comments: [{type: Schema.Types.ObjectId, ref: 'comments'}]    //评论
 });
 
 const workModel = Model('works', workSchema);

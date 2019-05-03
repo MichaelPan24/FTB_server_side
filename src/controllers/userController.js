@@ -7,6 +7,7 @@ const fs = require('fs');
 const User = require('../models/user');
 const Project = require('../models/project');
 const Work = require('../models/work');
+const Comment = require('../models/comment');
 
 //注册处理
 exports.register = function(req, res, next){
@@ -140,7 +141,7 @@ exports.updateInfo = function(req, res, next){
                 if(!User) {return user.set({email: email});}
                 else{res.status(403).end('邮箱已存在'); return }
             })
-
+            
             password && user.set({password: bcrypt.hashSync(password, 10)});
 
             avatarData && await fs.rename(avatarData.path, __dirname+ '/../public/upload/avatars/' + avatarData.originalname, (err) => {
@@ -311,6 +312,37 @@ exports.removeProject = function(req, res, next){
     }
 }
 
+exports.pushComment = function(req, res, next){
+    if(checkIsLogin(req.session)){
+        const {userId, workId} = _getParams(req);
+        const {detail} = req.body;
+        const newComment = new Comment({
+            _id: new mongoose.Types.ObjectId(),
+            avatar: new mongoose.Types.ObjectId(userId),
+            commentDetail: detail,
+            author: new mongoose.Types.ObjectId(userId),
+            work: new mongoose.Types.ObjectId(workId)
+        })
+        newComment.save( async (err, newComment) => {
+            if(err) throw err;
+            try{ await  Work.findById(workId, (err, work) => {
+                if(err) throw err;
+                work.comments.push(newComment._id)
+                work.save()
+                res.status(200).send(newComment)
+            })}catch(e){
+                throw e;
+            }
+            // await User.findById(userId, (err, user) => {
+            //     if(err) throw err;
+            //     user.com
+            // })
+        });
+    }else{
+        res.status(403).send('请登录')
+    }
+}
+
 /**
  * 
  * @param {String} userId 
@@ -329,6 +361,8 @@ function removeProject(userId, projectIdArr, removeType){
             })
         })
 }
+
+
 
 /**
  * 

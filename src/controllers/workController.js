@@ -1,21 +1,19 @@
 const Work = require('../models/work');
 const User = require('../models/user');
+const Comment = require('../models/comment');
+
 const fs = require('fs');
 const mongoose = require('mongoose');
 
+const getParams = require('../utils/commentUtil').getParams;
+const findMethod = require('../utils/commentUtil').FindMethod;
+
 exports.getCurrentWork = function(req, res, next){
+    // findMethod.findAll(Work, {path: 'avatar', select: ''})
     Work.find().populate({path: 'avatar', select: 'avatar'}).populate({path: 'author', select: 'name'}).populate({path: 'contact', select: 'email'}).populate({path: 'collectedUser', select: '_id'}).exec((err, works) => {
         if(err) throw err;
-        // new Promise((resolve, reject))
-        // works.forEach(async work => {
-        //     work.avatar = await work.avatar.avatar;
-        //     work.author = await work.author.name;
-        //     work.contact = await work.contact.email;
-        // })
         res.status(200).send(works)
     })
-        
-            
 }
 
 exports.uploadWork = function(req, res, next){
@@ -77,3 +75,19 @@ exports.uploadWork = function(req, res, next){
         res.status(400).send('请您先登陆')
     }
 }
+
+exports.getComment = function(req, res, next){
+    const {workId} = req.params;
+    Work.findById(workId).populate({path: 'comments'}).exec((err, comment) => {
+        if(err) throw err;
+        let opts =[
+            {path: 'avatar', select: 'avatar'},
+            {path: 'author', select: 'name'}
+        ]
+        Work.populate(comment.comments, opts, (err, works) => {
+            if(err) throw err;
+            res.status(200).send(works);
+        })
+    })
+}
+

@@ -59,4 +59,11 @@ router.get('/:userId/favorite/:type', UserController.getFav)
  * /api/user/:userId/remove/:removeType/:projectId
  */
 router.put('/:userId/remove/:removeType', UserController.removeProject)
+
+/**
+ * POST
+ * /api/user/:userId/work/:workId
+ */
+router.post('/:userId/comment/:workId', UserController.pushComment)
+
 module.exports = router;

@@ -17,7 +17,7 @@ exports.register = function(req, res, next){
         email: UserInfo.email
     }).then(async user => {
         if(user) {
-            res.status(400).json('邮箱已被注册');
+            res.status(400).end('邮箱已被注册');
             return;
         } else {
             avatarData && await fs.rename(avatarData.path, __dirname+ '/../public/upload/avatars/' + avatarData.originalname, (err) => {
@@ -66,7 +66,7 @@ exports.logIn = function(req, res, next){
     const userInfo = req.body;
     User.findOne({
         email: userInfo.email
-    }).then(user => {
+    }).populate('favorite_work').populate('favorite_project').then(user => {
         if(!user){
             res.status(404).json('用户不存在');
             return;
@@ -96,7 +96,7 @@ exports.logIn = function(req, res, next){
                         req.session.cookie.token = 'Bearer '+token;
                         req.session.loginUser = user;
                     // })
-                        
+                    User    
                     res.status(200).json({
                         success: true,
                         token: 'Bearer ' + token,
@@ -130,19 +130,20 @@ exports.logOut = function(req, res ,next){
 exports.updateInfo = function(req, res, next){
     const context = this;
     if(checkIsLogin(req.session)){
-        const userId = req.params.userId;
+        // const userId = req.params.userId;
+        const {userId} = _getParams(req);
         const {name, email, password} = req.body;
         const avatarData = req.file ? req.file : null; 
 
         find: User.findById(userId, async(err, user) => {
-            if(err) return err;
-            name && user.set({name: name});
+            if(err) throw err;
+            name && await user.set({name: name});
             email && await User.findOne({email: email}).then(User => {
                 if(!User) {return user.set({email: email});}
                 else{res.status(403).end('邮箱已存在'); return }
             })
             
-            password && user.set({password: bcrypt.hashSync(password, 10)});
+            password && await user.set({password: bcrypt.hashSync(password, 10)});
 
             avatarData && await fs.rename(avatarData.path, __dirname+ '/../public/upload/avatars/' + avatarData.originalname, (err) => {
                 if(err){
@@ -151,7 +152,7 @@ exports.updateInfo = function(req, res, next){
                 console.log('updated user avatar')
                 
             }) 
-            avatarData && user.set({avatar: 'http://119.23.227.22:3303/upload/avatars/'+ avatarData.originalname})
+            avatarData && await user.set({avatar: 'http://119.23.227.22:3303/upload/avatars/'+ avatarData.originalname})
 
             user.save((err, updatedUser) => {
                 if(err) throw err;
@@ -160,14 +161,13 @@ exports.updateInfo = function(req, res, next){
         }).catch(err => {
             throw err;
         })
-
     }else{
         res.status(403).send('未登录');
     }
 }
 
 /**
- * 更新用户的收藏夹
+ * 更新用户的收藏夹,添加或是删除收藏
  * @var {favProject, favWork} 需求或是作品id 
  */
 exports.updateFav = function(req, res, next){
@@ -175,29 +175,48 @@ exports.updateFav = function(req, res, next){
         const userId = req.params.userId;
         const favProject = req.body.favProject;
         const favWork = req.body.favWork;
-        User.findById(userId).exec((err, user) => {
-            if(err) return err;
-            favProject && user.favorite_project.push(favProject) && Project.findById(favProject, (err, project) => {
+        const isFav = parseInt( req.body.isFav);   //isFav 用户是添加还是删除项目, 1为添加, 0为删除
+        if(isFav){
+            User.findById(userId).exec((err, user) => {
                 if(err) throw err;
-                project.collectedUser.push(userId);
-                project.save();
-            })
-                
-            favWork && user.favorite_work.push(favWork) && Work.findById(favWork, (err, work) => {
-                if(err) throw err;
-                work.collectedUser.push(userId);
-                work.save();
-            })
-                
-            user.save((err, updatedUser) => {
-                if(err) return err;
-                updatedUser.populate('favorite_work').exec((err, user) => {
+                favProject && user.favorite_project.push(favProject) && Project.findById(favProject, (err, project) => {
                     if(err) throw err;
-                    res.json(user)
-                })
-                
+                    project.collectedUser.push(userId);
+                    project.save();
+                });
+                    
+                favWork && user.favorite_work.push(favWork) && Work.findById(favWork, (err, work) => {
+                    if(err) throw err;
+                    work.collectedUser.push(userId);
+                    work.save();
+                });
+                    
+                user.save((err, updatedUser) => {
+                    if(err) return err;
+                    res.status(200).json(updatedUser)                    
+                });
             })
-        })
+        }else if(!isFav){
+            User.findById(userId).exec((err, user) => {
+                if(err) throw err;
+                favProject && user.favorite_project.splice(user.favorite_project.map(v=>v.toString()).indexOf(favProject), 1) && Project.findById(favProject, (err, project) => {
+                    if(err) throw err;
+                    project.collectedUser.splice(project.collectedUser.map(v => v.toString()).indexOf(userId), 1);
+                    project.save(); 
+                });
+
+                favWork && user.favorite_work.splice(user.favorite_work.map(v => v.toString()).indexOf(userId), 1) && Work.findById(favWork, (err, work) => {
+                    if(err) throw err;
+                    work.collectedUser.splice(work.collectedUser.map(v => v.toString()).indexOf(userId), 1);
+                    work.save()
+                })
+
+                user.save((err, updatedUser) => {
+                    if(err) throw err;
+                    res.status(200).json(updatedUser)
+                })
+            })
+        }
     }else{
         res.status(403).json('未登录')
     }
@@ -249,8 +268,9 @@ exports.getProject = function(req, res, next){
 */
 exports.getFav = function(req, res, next){
     if(checkIsLogin(req.session)){
-        const userId = req.params.userId;
-        const type = String(req.params.type);
+        const {userId, type} = _getParams(req);
+        // const userId = req.params.userId;
+        // const type = String(req.params.type);
         // console.log(type, userId, typeof(userId), typeof type)
         if(type === 'project'){
             _UserFindById(userId, {path: 'favorite_project'}, (err, user) => {
@@ -258,7 +278,8 @@ exports.getFav = function(req, res, next){
                 let opts = [
                     {path: 'avatar', select: 'avatar'},
                     {path: 'companyName', select: 'name'},
-                    {path: 'contact', select: 'email'}
+                    {path: 'contact', select: 'email'},
+                    {path: 'collectedUser'}
                 ]
                 User.populate(user.favorite_project, opts, (err , user) => {
                     if(err) throw err;
@@ -272,7 +293,8 @@ exports.getFav = function(req, res, next){
                 let opts = [
                     {path: 'avatar', select: 'avatar'},
                     {path: 'author', select: 'name'},
-                    {path: 'contact', select: 'email'}
+                    {path: 'contact', select: 'email'},
+                    {path: 'collectedUser'}
                 ]
                 User.populate(user.favorite_work, opts, (err , user) => {
                     if(err) throw err;

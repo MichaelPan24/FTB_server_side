@@ -10,7 +10,7 @@ const mongoose = require('mongoose');
  */
 
 exports.getCurrentProject = (req, res, next) => {
-        Project.find({}).populate({path: 'avatar', select:'avatar'}).populate({path: 'companyName', select: 'name'}).populate({path: 'contact', select: 'email'}).exec((err, projects) => {
+        Project.find({}).populate({path: 'avatar', select:'avatar'}).populate({path: 'companyName', select: 'name'}).populate({path: 'contact', select: 'email'}).populate('collectedUser').exec((err, projects) => {
             if(err) throw err;
             res.send(projects);
     })
@@ -40,7 +40,7 @@ exports.uploadProject = (req, res, next) => {
             title: projectData.title,
             description: projectData.description,
             image: imgArr,
-            contact: loginUser.email,
+            contact: loginUser._id,
             // date: projectData.date
         });
         
